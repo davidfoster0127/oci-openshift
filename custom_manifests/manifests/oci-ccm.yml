@@ -265,7 +265,7 @@ spec:
             path: /etc/kubernetes
       containers:
         - name: oci-cloud-controller-manager
-          image: ghcr.io/davidfoster0127/cloud-provider-oci:v1.28.0
+          image: ghcr.io/davidfoster0127/cloud-provider-oci:v1.28.0-secondary-vnic
           command:
             - /bin/bash
             - -c

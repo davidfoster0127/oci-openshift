@@ -140,7 +140,7 @@ spec:
             - --fss-csi-endpoint=unix://var/run/shared-tmpfs/csi-fss.sock
           command:
             - /usr/local/bin/oci-csi-controller-driver
-          image: ghcr.io/davidfoster0127/cloud-provider-oci:v1.28.0
+          image: ghcr.io/davidfoster0127/cloud-provider-oci:v1.28.0-secondary-vnic
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: config
@@ -308,7 +308,7 @@ spec:
                   fieldPath: spec.nodeName
             - name: PATH
               value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/host/usr/bin:/host/sbin
-          image: ghcr.io/davidfoster0127/cloud-provider-oci:v1.28.0
+          image: ghcr.io/davidfoster0127/cloud-provider-oci:v1.28.0-secondary-vnic
           securityContext:
             privileged: true
           volumeMounts:

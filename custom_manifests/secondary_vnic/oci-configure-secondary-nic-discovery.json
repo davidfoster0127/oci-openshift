@@ -1,0 +1,26 @@
+{
+  "ignition": {
+    "version": "3.4.0"
+  },
+  "storage": {
+    "files": [
+      {
+        "path": "/usr/local/bin/oci-configure-secondary-nic.sh",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/5RUXU/jOhB9968YQqS2D04K4l4JRB/4eOBKF3a1C08IRcaZtKaJnbXH7ZY2/33ltmyrfvDxFE0858w5M/YcHqTe2fRZ6RT1CJ6FGzDmkIDj4vObsdv7h95pt9tlrPBakjIa+kiZKjItKswKa6qsEjITeW7ROZgygLW4F8XToyZiAKoG/uKMhlLpIczg5RdwbsWYG0+1J+Bc2P46FKJ4uhY2EbQSmEEl6rbDEiW1k7civXa8ljkTTiqV5WaspXDY6XRgBslj9ylRRRDdYg1jI62k68Vt6W0JnDtVoibgNxBdeBoYq15FMHsGlygsWvhmhSwxAv4/DIjqszQ9+vc0Of7nJFl+U1PLdHSczonTDnMojc6FnYRerXckbgfrFlrJ49FTUgl5kee2Befn58HxHN5EG/gguxe33+18FE/31dziU/UeObVVI0H4X/2BoBwL4UvK+oJwLCYbLCNlyYvyh/GE9kMu55810gbF4ueVyu1laeTwUxSZU684nykBL+AYeA6t9C90ByIQMVXAIxwERJQiyfQOaWzs8FZo0UebuokjrLg0WuP8Abh0gyvMo0l0tUqJ4InRADUD0JUsFayOQOR5CHlAbcmaU0WwuKj7TmlSIyAN0GokUPXJVuJqvk260/i8VU0E/fE2eGO289e75aIyuSom+xS+iUsq8hBPb+8fmq+TqHp0kthwh3iFZJWELhxCJYYINFAOlCa0hZAhRFiqXv39esFVYiI8mWUIZD2yXWwWSyPyXSe+3lODFYqxQwj3S1jjdQ5kALXzduGitqoSdrLmbazKMqxcuL77CQ6JlO47CK8frm+uvrMl4p0t031ny6yhP7ljdtcLXIsu5DhSEsGiqOtysoFYNuFPAAAA//8QAOnFeQYAAA=="
+        },
+        "mode": 493
+      }
+    ]
+  },
+  "systemd": {
+    "units": [
+      {
+        "contents": "[Unit]\nDescription=Configure secondary NIC on OCI\nAfter=network-online.target\n\n[Service]\nExecStart=/usr/local/bin/oci-configure-secondary-nic.sh\nType=oneshot\nRemainAfterExit=yes\nRestart=on-failure\nRestartSec=30\n\n[Install]\nWantedBy=multi-user.target",
+        "enabled": true,
+        "name": "oci-configure-secondary-nic.service"
+      }
+    ]
+  }
+}

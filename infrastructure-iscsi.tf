@@ -177,6 +177,10 @@ variable "private_cidr" {
   type        = string
   description = "The IPv4 CIDR blocks for the private subnet of your OpenShift Cluster. The default value is 10.0.16.0/20. "
 }
+variable "private_cidr_2" {
+  default     = "10.0.32.0/20"
+  description = "The IPv4 CIDR blocks for the private subnet of your OpenShift Cluster. The default value is 10.0.16.0/20. "
+}
 variable "public_cidr" {
   default     = "10.0.0.0/20"
   type        = string
@@ -264,10 +268,60 @@ resource "oci_identity_tag" "openshift_instance_role" {
 data "oci_core_compute_global_image_capability_schemas" "image_capability_schemas" {
 }
 
+# TODO - add variables for the image capability schema
+
 locals {
   global_image_capability_schemas = data.oci_core_compute_global_image_capability_schemas.image_capability_schemas.compute_global_image_capability_schemas
   image_schema_data = {
     "Compute.Firmware" = "{\"values\": [\"UEFI_64\"],\"defaultValue\": \"UEFI_64\",\"descriptorType\": \"enumstring\",\"source\": \"IMAGE\"}"
+  }
+  schema_firmware = {
+    "Compute.Firmware" = jsonencode({
+      "descriptorType" = "enumstring",
+      "source"         = "IMAGE",
+      "defaultValue"   = "UEFI_64",
+      "values"         = ["UEFI_64"]
+    })
+  }
+
+  schema_boot_volume_type = {
+    "Storage.BootVolumeType" = jsonencode({
+      "descriptorType" = "enumstring",
+      "source"         = "IMAGE",
+      "defaultValue"   = "ISCSI",
+      "values"         = ["ISCSI", "SCSI", "IDE", "PARAVIRTUALIZED"]
+    })
+  }
+  schema_launch_mode = {
+    "Compute.LaunchMode" = jsonencode({
+      "descriptorType" = "enumstring",
+      "source"         = "IMAGE",
+      "defaultValue"   = "NATIVE",
+      "values"         = ["NATIVE", "EMULATED", "PARAVIRTUALIZED", "CUSTOM"]
+    })
+  }
+  schema_local_volume_data_type = {
+    "Storage.LocalDataVolumeType" = jsonencode({
+      "descriptorType" = "enumstring",
+      "source"         = "IMAGE",
+      "defaultValue"   = "ISCSI",
+      "values"         = ["ISCSI", "SCSI", "IDE", "PARAVIRTUALIZED"]
+    })
+  }
+  schema_remote_volume_data_type = {
+    "Storage.RemoteDataVolumeType" = jsonencode({
+      "descriptorType" = "enumstring",
+      "source"         = "IMAGE",
+      "defaultValue"   = "ISCSI",
+      "values"         = ["ISCSI", "SCSI", "IDE", "PARAVIRTUALIZED"]
+    })
+  }
+  schema_storage_iscsi_multipath_device_supported = {
+    "Storage.Iscsi.MultipathDeviceSupported" = jsonencode({
+      "descriptorType" = "boolean",
+      "source"         = "IMAGE",
+      "defaultValue"   = true
+    })
   }
 }
 
@@ -275,7 +329,7 @@ resource "oci_core_image" "openshift_image" {
   count          = var.create_openshift_instance_pools ? 1 : 0
   compartment_id = var.compartment_ocid
   display_name   = var.cluster_name
-  launch_mode    = "PARAVIRTUALIZED"
+  launch_mode    = "NATIVE"
 
   image_source_details {
     source_type = "objectStorageUri"
@@ -304,7 +358,7 @@ resource "oci_core_compute_image_capability_schema" "openshift_image_capability_
   compartment_id                                      = var.compartment_ocid
   compute_global_image_capability_schema_version_name = local.global_image_capability_schemas[0].current_version_name
   image_id                                            = oci_core_image.openshift_image[0].id
-  schema_data                                         = local.image_schema_data
+  schema_data                                         = merge(local.schema_firmware, local.schema_boot_volume_type, local.schema_launch_mode, local.schema_local_volume_data_type, local.schema_remote_volume_data_type, local.schema_storage_iscsi_multipath_device_supported)
 }
 
 ##Define network
@@ -432,6 +486,21 @@ resource "oci_core_subnet" "private" {
   prohibit_public_ip_on_vnic = true
 }
 
+resource "oci_core_subnet" "private2" {
+  cidr_block     = var.private_cidr_2
+  display_name   = "private_two"
+  compartment_id = var.compartment_ocid
+  vcn_id         = oci_core_vcn.openshift_vcn.id
+  route_table_id = oci_core_route_table.private_routes.id
+
+  security_list_ids = [
+    oci_core_security_list.private.id,
+  ]
+
+  dns_label                  = "private2"
+  prohibit_public_ip_on_vnic = true
+}
+
 resource "oci_core_subnet" "public" {
   cidr_block     = var.public_cidr
   display_name   = "public"
@@ -550,7 +619,7 @@ resource "oci_load_balancer_load_balancer" "openshift_api_int_lb" {
   compartment_id             = var.compartment_ocid
   display_name               = "${var.cluster_name}-openshift_api_int_lb"
   shape                      = "flexible"
-  subnet_ids                 = [oci_core_subnet.private.id]
+  subnet_ids                 = [oci_core_subnet.private2.id]
   is_private                 = true
   network_security_group_ids = [oci_core_network_security_group.cluster_lb_nsg.id]
 
@@ -830,6 +899,19 @@ resource "oci_core_instance_configuration" "control_plane_node_config" {
         source_type             = "image"
       }
     }
+    secondary_vnics {
+      display_name = "vnic2"
+      create_vnic_details {
+        assign_private_dns_record = "true"
+        assign_public_ip          = "false"
+        hostname_label            = "secondary" # doesnt work...
+        nsg_ids = [
+          oci_core_network_security_group.cluster_controlplane_nsg.id,
+        ]
+        subnet_id    = oci_core_subnet.private2.id
+        display_name = "vnic2"
+      }
+    }
   }
 }
 
@@ -845,29 +927,35 @@ resource "oci_core_instance_pool" "control_plane_nodes" {
     backend_set_name = oci_load_balancer_backend_set.openshift_cluster_api_backend_external.name
     load_balancer_id = oci_load_balancer_load_balancer.openshift_api_apps_lb.id
     port             = "6443"
-    vnic_selection   = "PrimaryVnic"
+    vnic_selection   = "vnic2"
   }
   load_balancers {
     backend_set_name = oci_load_balancer_backend_set.openshift_cluster_api_backend_internal.name
     load_balancer_id = oci_load_balancer_load_balancer.openshift_api_int_lb.id
     port             = "6443"
-    vnic_selection   = "PrimaryVnic"
+    vnic_selection   = "vnic2"
   }
   load_balancers {
     backend_set_name = oci_load_balancer_backend_set.openshift_cluster_infra-mcs_backend.name
     load_balancer_id = oci_load_balancer_load_balancer.openshift_api_int_lb.id
     port             = "22623"
-    vnic_selection   = "PrimaryVnic"
+    vnic_selection   = "vnic2"
   }
   load_balancers {
     backend_set_name = oci_load_balancer_backend_set.openshift_cluster_infra-mcs_backend_2.name
     load_balancer_id = oci_load_balancer_load_balancer.openshift_api_int_lb.id
     port             = "22624"
-    vnic_selection   = "PrimaryVnic"
+    vnic_selection   = "vnic2"
   }
   placement_configurations {
     availability_domain = data.oci_identity_availability_domain.availability_domain.name
-    primary_subnet_id   = oci_core_subnet.private.id
+    primary_vnic_subnets {
+      subnet_id = oci_core_subnet.private.id
+    }
+    secondary_vnic_subnets {
+      display_name = "vnic2"
+      subnet_id    = oci_core_subnet.private2.id
+    }
   }
   size = var.control_plane_count
 }
@@ -904,6 +992,19 @@ resource "oci_core_instance_configuration" "compute_node_config" {
         source_type             = "image"
       }
     }
+    secondary_vnics {
+      display_name = "vnic2"
+      create_vnic_details {
+        assign_private_dns_record = "true"
+        assign_public_ip          = "false"
+        hostname_label            = "secondary" # doesnt work
+        nsg_ids = [
+          oci_core_network_security_group.cluster_compute_nsg.id,
+        ]
+        subnet_id    = oci_core_subnet.private2.id
+        display_name = "vnic2"
+      }
+    }
   }
 }
 
@@ -918,17 +1019,23 @@ resource "oci_core_instance_pool" "compute_nodes" {
     backend_set_name = oci_load_balancer_backend_set.openshift_cluster_ingress_https_backend.name
     load_balancer_id = oci_load_balancer_load_balancer.openshift_api_apps_lb.id
     port             = "443"
-    vnic_selection   = "PrimaryVnic"
+    vnic_selection   = "vnic2"
   }
   load_balancers {
     backend_set_name = oci_load_balancer_backend_set.openshift_cluster_ingress_http_backend.name
     load_balancer_id = oci_load_balancer_load_balancer.openshift_api_apps_lb.id
     port             = "80"
-    vnic_selection   = "PrimaryVnic"
+    vnic_selection   = "vnic2"
   }
   placement_configurations {
     availability_domain = data.oci_identity_availability_domain.availability_domain.name
-    primary_subnet_id   = oci_core_subnet.private.id
+    primary_vnic_subnets {
+      subnet_id = oci_core_subnet.private.id
+    }
+    secondary_vnic_subnets {
+      subnet_id    = oci_core_subnet.private2.id
+      display_name = "vnic2"
+    }
   }
   size = var.compute_count
 }
@@ -947,10 +1054,10 @@ useInstancePrincipals: true
 compartment: ${var.compartment_ocid}
 vcn: ${oci_core_vcn.openshift_vcn.id}
 loadBalancer:
-  subnet1: ${var.enable_private_dns ? oci_core_subnet.private.id : oci_core_subnet.public.id}
+  subnet1: ${var.enable_private_dns ? oci_core_subnet.private2.id : oci_core_subnet.public.id}
   securityListManagementMode: Frontend
   securityLists:
-    ${var.enable_private_dns ? oci_core_subnet.private.id : oci_core_subnet.public.id}: ${var.enable_private_dns ? oci_core_security_list.private.id : oci_core_security_list.public.id}
+    ${var.enable_private_dns ? oci_core_subnet.private2.id : oci_core_subnet.public.id}: ${var.enable_private_dns ? oci_core_security_list.private.id : oci_core_security_list.public.id}
 rateLimiter:
   rateLimitQPSRead: 20.0
   rateLimitBucketRead: 5
