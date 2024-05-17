@@ -907,6 +907,7 @@ resource "oci_core_instance_configuration" "control_plane_node_config" {
         subnet_id    = oci_core_subnet.private2.id
         display_name = "vnic2"
       }
+      nic_index = 1
     }
   }
 }
@@ -996,6 +997,7 @@ resource "oci_core_instance_configuration" "compute_node_config" {
         subnet_id    = oci_core_subnet.private2.id
         display_name = "vnic2"
       }
+      nic_index = 1
     }
   }
 }
