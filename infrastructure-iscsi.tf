@@ -888,10 +888,6 @@ resource "oci_core_instance_configuration" "control_plane_node_config" {
         "openshift-${var.cluster_name}.instance-role" = "control_plane"
       }
       shape = var.control_plane_shape
-      shape_config {
-        memory_in_gbs = var.control_plane_memory
-        ocpus         = var.control_plane_ocpu
-      }
       source_details {
         boot_volume_size_in_gbs = var.control_plane_boot_size
         boot_volume_vpus_per_gb = var.control_plane_boot_volume_vpus_per_gb
@@ -981,10 +977,6 @@ resource "oci_core_instance_configuration" "compute_node_config" {
         "openshift-${var.cluster_name}.instance-role" = "compute"
       }
       shape = var.compute_shape
-      shape_config {
-        memory_in_gbs = var.compute_memory
-        ocpus         = var.compute_ocpu
-      }
       source_details {
         boot_volume_size_in_gbs = var.compute_boot_size
         boot_volume_vpus_per_gb = var.compute_boot_volume_vpus_per_gb
