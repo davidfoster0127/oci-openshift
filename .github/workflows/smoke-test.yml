@@ -24,7 +24,7 @@ jobs:
         uses: oracle-actions/run-oci-cli-command@v1.3.0
         id: find-instances
         with:
-          command: 'compute instance list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output | jq -r \".[0]\" }}'
+          command: 'compute instance list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output | jq -r .[0] }}'
           query: "data[*].{name: display-name, shape: shape}"
           silent: false
 
